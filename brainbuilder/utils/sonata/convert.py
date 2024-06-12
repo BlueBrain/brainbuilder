@@ -11,8 +11,6 @@ import re
 import h5py
 import numpy as np
 import pandas as pd
-from bluepy import Circuit
-from bluepy.impl.target import TARGET_REGEX
 from voxcell import CellCollection
 
 from brainbuilder.exceptions import BrainBuilderError
@@ -193,7 +191,21 @@ def _parse_targets(target_files):
         with open(filepath, "r", encoding="utf-8") as f:
             contents = f.read()
 
-        for m in TARGET_REGEX.finditer(contents):
+        target_regex = re.compile(
+            r"""
+            Target               # Start token
+            \s+                  # 1 or more whitespace
+            (?P<type>\S+)        # type
+            \s+                  # 1 or more whitespace
+            (?P<name>\S+)        # name
+            \s+                  # 1 or more whitespace
+            (?P<start>\{)        # start brace
+            (?P<contents>[^}]*)  # not the end brace (contents is needed by brainbuilder)
+            (?P<end>})           # end brace
+            """,
+            re.VERBOSE | re.MULTILINE | re.DOTALL
+        )
+        for m in target_regex.finditer(contents):
             yield m.group("name"), m.group("contents").strip().split()
 
     targets = {}
@@ -215,6 +227,7 @@ def write_node_set_from_targets(target_files, output_file, cells_path):
 
     The 'brainbuilder targets node-sets' should be preferred if possible.
     """
+    from bluepy import Circuit
     cells = Circuit({"cells": cells_path, "targets": target_files}).cells
     if not os.path.basename(output_file) == "node_sets.json":
         basename = os.path.basename(output_file)

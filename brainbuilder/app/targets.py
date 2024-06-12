@@ -5,7 +5,6 @@ import collections
 import logging
 
 import click
-from bluepy import Circuit
 from voxcell import ROIMask
 from voxcell.nexus.voxelbrain import Atlas
 
@@ -104,6 +103,7 @@ def _load_targets(filepath):
 def from_input(cells_path, atlas, atlas_cache, targets, allow_empty, output):
     """Generate .target file from MVD3 or SONATA (and target definition YAML)"""
     # pylint: disable=too-many-locals
+    from bluepy import Circuit
     circuit = Circuit({"cells": cells_path})
     cells = circuit.cells.get()
     with open(output, "w", encoding="utf-8") as f:
@@ -169,6 +169,7 @@ def node_sets(
 ):
     """Generate JSON node sets from MVD3 or SONATA (and target definition YAML)"""
     # pylint: disable=too-many-locals
+    from bluepy import Circuit
 
     result = {}
 
