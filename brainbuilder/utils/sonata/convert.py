@@ -228,7 +228,7 @@ def write_node_set_from_targets(target_files, output_file, cells_path):
 
     The 'brainbuilder targets node-sets' should be preferred if possible.
     """
-    from bluepy import Circuit
+    from bluepy import Circuit  # pylint: disable=import-error,import-outside-toplevel
 
     cells = Circuit({"cells": cells_path, "targets": target_files}).cells
     if not os.path.basename(output_file) == "node_sets.json":

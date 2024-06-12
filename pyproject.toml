@@ -1,3 +1,125 @@
+[build-system]
+requires = ["setuptools>=64", "setuptools_scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "brainbuilder"
+description = "BrainBuilder is a tool to define the cells that will compose a circuit."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "Apache-2.0" }
+authors = [
+    { name = "Blue Brain Project, EPFL" },
+]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+dependencies = [
+    "bluepysnap>=1.0.3",
+    "click>=7.0,<9.0",
+    "h5py>=3.1.0",
+    "joblib>=1.0.1",
+    "jsonschema>=3.2.0",
+    "libsonata>=0.1.6",
+    "lxml>=3.3",
+    "morphio>=3,<4",
+    "numpy>=1.9",
+    "pandas>=1.0.0",
+    "pyyaml>=5.3.1",
+    "scipy>=0.13",
+    "tqdm>=4.0",
+    "voxcell>=3.1.1",
+]
+dynamic = ["version"]
+
+[tool.setuptools]
+packages = ["brainbuilder"]
+
+[project.optional-dependencies]
+all = []  # for compatibility
+reindex = []  # for compatibility
+
+[project.urls]
+Homepage = "https://github.com/BlueBrain/brainbuild"
+Repository = "https://github.com/BlueBrain/brainbuild.git"
+Documentation = "https://github.com/BlueBrain/brainbuild"
+Tracker = "https://github.com/BlueBrain/brainbuild/issues"
+
+[project.scripts]
+brainbuilder = "brainbuilder.app.__main__:main"
+
+[tool.setuptools_scm]
+version_file = "brainbuilder/version.py"
+
+[tool.pylint.main]
+# Files or directories to be skipped. They should be base names, not paths.
+ignore = ["CVS", "version.py"]
+# A comma-separated list of package or module names from where C extensions may
+# be loaded. Extensions are loading into the active Python interpreter and may
+# run arbitrary code.
+extension-pkg-allow-list = ["numpy", "lxml"]
+# List of plugins (as comma separated values of python module names) to load,
+# usually to register additional checkers.
+load-plugins = []
+# List of module names for which member attributes should not be checked.
+ignored-modules = ["bluepy"]
+
+[tool.pylint.design]
+# Maximum number of arguments for function / method.
+max-args = 8
+# Maximum number of attributes for a class (see R0902).
+max-attributes = 40
+# Maximum number of boolean expressions in an if statement (see R0916).
+#max-bool-expr = 5
+# Maximum number of branch for function / method body.
+max-branches = 12
+# Maximum number of locals for function / method body.
+max-locals = 15
+# Maximum number of parents for a class (see R0901).
+max-parents = 7
+# Minimum number of public methods for a class (see R0903).
+min-public-methods = 0
+# Maximum number of public methods for a class (see R0904).
+max-public-methods = 60
+# Maximum number of return / yield for function / method body.
+max-returns = 6
+# Maximum number of statements in function / method body.
+max-statements = 50
+
+[tool.pylint.format]
+# Regexp for a line that is allowed to be longer than the limit.
+ignore-long-lines = "\\bhttps?://\\S"
+# Maximum number of characters on a single line.
+max-line-length = 100
+
+[tool.pylint."messages control"]
+disable = ["fixme", "invalid-name", "len-as-condition", "no-else-return"]
+
+[tool.pylint.similarities]
+# Comments are removed from the similarity computation
+ignore-comments = true
+# Docstrings are removed from the similarity computation
+ignore-docstrings = true
+# Minimum lines number of a similarity.
+min-similarity-lines = 25
+
+[tool.pylint.typecheck]
+# List of class names for which member attributes should not be checked (useful
+# for classes with dynamically set attributes). This supports the use of
+# qualified names.
+ignored-classes = ["numpy", "list"]
+
+[tool.pylint.variables]
+# Argument names that match this expression will be ignored.
+ignored-argument-names = "_.*"
+
 [tool.black]
 line-length = 100
 target-version = ['py38']
