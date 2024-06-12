@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """ libraries of common functionality for circuit building """
 
 import json

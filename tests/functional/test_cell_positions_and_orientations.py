@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """test positions_and_orientations"""
 
 from unittest.mock import patch

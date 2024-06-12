@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Tools for working with SONATA."""
 
 # pylint: disable=import-outside-toplevel

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """
 `lhs > rhs` is an edge from lhs to rhs
 

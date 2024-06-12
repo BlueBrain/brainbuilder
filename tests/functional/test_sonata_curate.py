@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Application of `curate` functionality to existing Sonata circuits."""
 
 import re

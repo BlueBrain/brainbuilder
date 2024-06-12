@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Target generation."""
 
 # pylint: disable=import-outside-toplevel

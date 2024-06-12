@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 r"""
 Single parents; collapse to single segment::
 

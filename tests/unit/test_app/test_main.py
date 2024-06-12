@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 from click.testing import CliRunner
 
 from brainbuilder.app import __main__ as test_module

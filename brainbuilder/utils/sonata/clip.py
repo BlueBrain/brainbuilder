@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """SONATA helpers to remove unnecessary (ie: clip) auxiliary files"""
 
 import logging

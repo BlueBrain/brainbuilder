@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """The masks that used to live in voxcell.build."""
 
 import numpy as np

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Collection of functions to curate/edit SONATA circuits."""
 
 import logging

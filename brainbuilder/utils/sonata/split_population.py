@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Split a SONATA node/edge population into sub-populations"""
 
 import collections

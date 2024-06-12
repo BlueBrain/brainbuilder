@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 import importlib.util
 
 from setuptools import find_packages, setup

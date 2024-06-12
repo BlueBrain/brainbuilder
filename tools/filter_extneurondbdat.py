@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Script that
 (1) loads extneurondb.dat file and list of morphologies to exclude,
 (2) filters morphologies out,

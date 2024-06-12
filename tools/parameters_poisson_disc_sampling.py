@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 '''See https://bbpteam.epfl.ch/project/issues/browse/BRBLD-52'''
 
 import sys
