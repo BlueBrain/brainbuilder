@@ -203,7 +203,7 @@ def _parse_targets(target_files):
             (?P<contents>[^}]*)  # not the end brace (contents is needed by brainbuilder)
             (?P<end>})           # end brace
             """,
-            re.VERBOSE | re.MULTILINE | re.DOTALL
+            re.VERBOSE | re.MULTILINE | re.DOTALL,
         )
         for m in target_regex.finditer(contents):
             yield m.group("name"), m.group("contents").strip().split()
@@ -228,6 +228,7 @@ def write_node_set_from_targets(target_files, output_file, cells_path):
     The 'brainbuilder targets node-sets' should be preferred if possible.
     """
     from bluepy import Circuit
+
     cells = Circuit({"cells": cells_path, "targets": target_files}).cells
     if not os.path.basename(output_file) == "node_sets.json":
         basename = os.path.basename(output_file)

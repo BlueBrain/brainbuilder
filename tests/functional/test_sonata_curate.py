@@ -5,14 +5,13 @@ import shutil
 from pathlib import Path
 
 import pytest
-
 from bluepysnap.circuit_validation import validate
 
 from brainbuilder.utils.sonata import curate
 from brainbuilder.utils.sonata.write_config import write_network_config
 
-
 CIRCUIT_PATH = Path("/gpfs/bbp.cscs.ch/project/proj42/circuits/CA1.O0/20191017/")
+
 
 @pytest.mark.skipif(not CIRCUIT_PATH.exists(), reason="Do not have access to proj42")
 def test_hippocampus(tmp_path):

@@ -12,7 +12,8 @@ from brainbuilder.exceptions import BrainBuilderError
 from brainbuilder.utils import load_json
 from brainbuilder.utils.sonata import convert
 
-HAVE_BLUEPY = importlib.util.find_spec('bluepy') is not None
+HAVE_BLUEPY = importlib.util.find_spec("bluepy") is not None
+
 
 def test__add_me_info():
     def _mock_cells():
