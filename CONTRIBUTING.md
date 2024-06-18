@@ -1,6 +1,6 @@
 # Contribution Guide
 
-We would love for you to contribute to the NeuroC project and help make it better than it is today.
+We would love for you to contribute to the brainbuilder project and help make it better than it is today.
 As a contributor, here are the guidelines we would like you to follow:
 
  - [Question or Problem?](#got-a-question)
@@ -104,4 +104,4 @@ the main (upstream) repository:
     git pull --ff upstream main
     ```
 
-[github]: https://github.com/BlueBrain/NeuroC
+[github]: https://github.com/BlueBrain/brainbuilder
