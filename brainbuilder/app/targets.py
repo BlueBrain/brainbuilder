@@ -8,6 +8,7 @@ import click
 import voxcell
 
 import brainbuilder
+import brainbuilder.targets
 from brainbuilder.exceptions import BrainBuilderError
 from brainbuilder.utils import bbp, dump_json
 
