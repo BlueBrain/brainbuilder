@@ -317,7 +317,7 @@ def init(population_name, output):
     cells.save(output)
 
 
-@app.command(short_help="Generate cell positions and me-types")
+@app.command(short_help="Generate cell positions and me-types", name="place")
 @click.option("--composition", help="Path to ME-type composition YAML", required=True)
 @click.option("--mtype-taxonomy", help="Path to mtype taxonomy TSV", required=True)
 @click.option("--atlas", help="Atlas URL / path", required=True)
@@ -350,6 +350,44 @@ def init(population_name, output):
     default=None,
     help="Existing cells which are extended with" "the new positioned cells",
 )
+def place_cli(
+    composition,
+    mtype_taxonomy,
+    atlas,
+    mini_frequencies,
+    atlas_cache,
+    region,
+    mask,
+    density_factor,
+    soma_placement,
+    atlas_property,
+    sort_by,
+    append_hemisphere,
+    seed,
+    output,
+    input_path,
+):
+    """Places new cells into an existing cells or creates new cells if no existing were provided."""
+    # pylint: disable=too-many-arguments, too-many-locals
+    place(
+        composition,
+        mtype_taxonomy,
+        atlas,
+        mini_frequencies,
+        atlas_cache,
+        region,
+        mask,
+        density_factor,
+        soma_placement,
+        atlas_property,
+        sort_by,
+        append_hemisphere,
+        seed,
+        output,
+        input_path,
+    )
+
+
 def place(
     composition,
     mtype_taxonomy,
@@ -368,7 +406,6 @@ def place(
     input_path,
 ):
     """Places new cells into an existing cells or creates new cells if no existing were provided."""
-
     # pylint: disable=too-many-arguments, too-many-locals
     np.random.seed(seed)
 
