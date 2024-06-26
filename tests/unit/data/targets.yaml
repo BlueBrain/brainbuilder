@@ -1,0 +1,9 @@
+targets:
+  query_based:
+    L3_MC: {'mtype': 'L23_MC', 'region': {'$regex': '.*3'}}
+    L5_TPC: {'mtype': ['L5_TPC:A']}
+    L5_CUSTOM: {'layer': 5}
+  # 0/1 masks registered in the atlas
+
+  atlas_based:
+    cylinder: '{S1HL-cylinder}'
