@@ -1,4 +1,5 @@
 """Handling of targets and nodesets"""
+
 import collections
 
 import bluepysnap
@@ -88,6 +89,8 @@ def create_node_sets(cells, full_hierarchy, atlas, targets, allow_empty, populat
         allow_empty(bool): Allow empty targets
         population(str): name of the population
     """
+    # pylint: disable=too-many-locals
+
     result = {}
 
     cells = cells.as_dataframe()
@@ -113,14 +116,15 @@ def create_node_sets(cells, full_hierarchy, atlas, targets, allow_empty, populat
     _add_node_sets(
         {
             val: {prop: val}
-            for prop in ["mtype", "etype"] if prop in cells.columns
+            for prop in ["mtype", "etype"]
+            if prop in cells.columns
             for val in cells[prop].unique()
         }
     )
 
     occupied_regions = {}
     if "region" in cells.columns:
-        occupied_regions = {val: {"region": val} for val in cells['region'].unique()}
+        occupied_regions = {val: {"region": val} for val in cells["region"].unique()}
         _add_node_sets(occupied_regions)
 
     if full_hierarchy:

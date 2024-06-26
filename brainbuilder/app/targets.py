@@ -101,13 +101,12 @@ def node_sets(
     cells_path, full_hierarchy, atlas, atlas_cache, targets, allow_empty, population, output
 ):
     """Generate JSON node sets from MVD3 or SONATA (and target definition YAML)"""
-    # pylint: disable=too-many-locals
 
     cells = voxcell.CellCollection.load(cells_path)
 
     atlas = brainbuilder.targets.load_atlas(atlas, atlas_cache)
 
-    result = brainbuilder.targets.create(
+    result = brainbuilder.targets.create_node_sets(
         cells, full_hierarchy, atlas, targets, allow_empty, population
     )
 
