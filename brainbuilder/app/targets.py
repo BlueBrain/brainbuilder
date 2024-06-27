@@ -85,7 +85,7 @@ def from_input(cells_path, atlas, atlas_cache, targets, allow_empty, output):
                     bbp.write_target(f, name, cells.index[mask])
 
 
-@app.command(name="node-sets-cli")
+@app.command(name="node-sets")
 @click.argument("cells-path")
 @click.option(
     "--full-hierarchy",
