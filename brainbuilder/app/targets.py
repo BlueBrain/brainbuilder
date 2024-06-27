@@ -85,7 +85,7 @@ def from_input(cells_path, atlas, atlas_cache, targets, allow_empty, output):
                     bbp.write_target(f, name, cells.index[mask])
 
 
-@app.command()
+@app.command(name="node-sets-cli")
 @click.argument("cells-path")
 @click.option(
     "--full-hierarchy",
@@ -98,6 +98,15 @@ def from_input(cells_path, atlas, atlas_cache, targets, allow_empty, output):
 @click.option("--allow-empty", is_flag=True, help="Allow empty targets", show_default=True)
 @click.option("--population", help="Population name", default="default", show_default=True)
 @click.option("-o", "--output", help="Path to output JSON file", required=True)
+def node_sets_cli(
+    cells_path, full_hierarchy, atlas, atlas_cache, targets, allow_empty, population, output
+):
+    """Generate JSON node sets from MVD3 or SONATA (and target definition YAML)"""
+    node_sets(
+        cells_path, full_hierarchy, atlas, atlas_cache, targets, allow_empty, population, output
+    )
+
+
 def node_sets(
     cells_path, full_hierarchy, atlas, atlas_cache, targets, allow_empty, population, output
 ):
