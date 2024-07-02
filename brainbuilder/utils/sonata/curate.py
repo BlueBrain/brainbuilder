@@ -413,7 +413,7 @@ def update_node_dtypes(h5_file, population_name, population_type):
                 continue
 
             target_dtype = property_types[attribute_name]
-            if target_dtype == str:
+            if target_dtype is str:
                 continue
 
             if attribute_name in library:
@@ -470,7 +470,7 @@ def update_edge_dtypes(h5_file, population_name, population_type, virtual):
                 continue
 
             target_dtype = property_types[attribute_name]
-            if target_dtype == str:
+            if target_dtype is str:
                 continue
 
             if target_dtype != group[attribute_name].dtype:
