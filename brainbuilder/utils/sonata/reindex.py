@@ -36,8 +36,10 @@ from functools import partial
 
 import click
 import h5py
+import morph_tool.transform
 import morphio
 import numpy as np
+from scipy.spatial.transform import Rotation
 from tqdm import tqdm
 
 L = logging.getLogger(__name__)
@@ -429,8 +431,8 @@ def write_sonata_pos(morphologies, population, direction, edge_path):
         backup_and_create_dataset(pop0, field, positions, np.float32)
 
 
-def _get_section_type_data(gid, edge_path, direction, population):
-    """Gets the necessary data from edges file to compute the section position."""
+def _get_data_for_resolving_section_type(gid, edge_path, direction, population):
+    """Gets the necessary data from edges file to resolve section type."""
     with h5py.File(edge_path) as h5:
         pop = h5["edges"][population]
         edge_idx = _get_synapse_ids(pop[f"indices/{INDEX_DIRECTION[direction]}"], gid)
@@ -449,7 +451,7 @@ def _get_section_type_data(gid, edge_path, direction, population):
 
 def _get_section_type_worker(id_morph, edge_path, direction, population):
     gid, morph_path = id_morph
-    data = _get_section_type_data(gid, edge_path, direction, population)
+    data = _get_data_for_resolving_section_type(gid, edge_path, direction, population)
 
     if data is None:
         return None
@@ -496,3 +498,126 @@ def write_section_types(morphologies, population, direction, edge_path):
         pop0 = h5[f"edges/{population}/0"]
         field = direction + "_section_type"
         backup_and_create_dataset(pop0, field, types, np.uint32)
+
+
+def _compute_center_point(morph, section_ids, segment_ids, segment_offsets):
+    """Compute center point along the segment."""
+    segment_start, segment_end = np.zeros((2, len(section_ids), 3))
+
+    for i, (section_id, segment_id) in enumerate(zip(section_ids, segment_ids)):
+        if section_id == 0:
+            segment_start[i] = morph.soma.center
+            segment_end[i] = segment_start[i] + 1
+        else:
+            section = morph.section(section_id - 1)  # off-by-one gotcha
+
+            if segment_id == len(section.points) - 1:
+                # In rare cases, synapse at the end of last segment has a non-existing
+                # Segment ID (1 too much) and an offset of zero.
+                if segment_offsets[i] != 0:
+                    raise RuntimeError(f"Unexpected offset {segment_offsets[i]}")
+
+                # Imaginary segment starting at the end of last segment
+                segment_start[i] = section.points[segment_id]
+                segment_end[i] = section.points[segment_id] + 1
+            else:
+                segment_start[i] = section.points[segment_id]
+                segment_end[i] = section.points[segment_id + 1]
+
+    along = segment_end - segment_start
+    center_point = segment_start + (segment_offsets * along.T / np.linalg.norm(along, axis=1)).T
+
+    return center_point
+
+
+def _get_data_for_computing_center_points(gid, edge_path, direction, population):
+    """Gets the necessary data from edges file to compute center point."""
+    with h5py.File(edge_path) as h5:
+        pop = h5["edges"][population]
+        edge_idx = _get_synapse_ids(pop[f"indices/{INDEX_DIRECTION[direction]}"], gid)
+
+        if edge_idx is None:
+            return None
+
+        index = INDEX_ID[direction]
+        assert len(set(pop[index][edge_idx])) == 1, f"{index} contains erroneous entries"
+
+        return (
+            np.asarray(pop[f"0/{direction}_section_id"][edge_idx]),
+            np.asarray(pop[f"0/{direction}_segment_id"][edge_idx]),
+            np.asarray(pop[f"0/{direction}_segment_offset"][edge_idx]),
+            edge_idx,
+            pop[index].attrs["node_population"],
+        )
+
+
+def _transform_morphology(morph, node_path, node_population, gid):
+    """Apply transformation to morphology."""
+    with h5py.File(node_path, "r") as h5:
+        pop0 = h5[f"nodes/{node_population}/0"]
+        x = pop0["x"][gid]
+        y = pop0["y"][gid]
+        z = pop0["z"][gid]
+        qw = pop0["orientation_w"][gid]
+        qx = pop0["orientation_x"][gid]
+        qy = pop0["orientation_y"][gid]
+        qz = pop0["orientation_z"][gid]
+
+    T = np.eye(4)
+    T[:3, :3] = Rotation.from_quat([qx, qy, qz, qw]).as_matrix()
+    T[:3, 3] = np.array([x, y, z])
+    morph_tool.transform.transform(morph, T)
+
+    return morph.as_immutable()
+
+
+def _compute_center_point_worker(id_morph, edge_path, node_path, direction, population):
+    """Worker function computing the synapse center points."""
+    gid, morph_path = id_morph
+    data = _get_data_for_computing_center_points(gid, edge_path, direction, population)
+
+    if data is None:
+        return None
+
+    section_id, segment_id, segment_offset, edge_idx, node_population = data
+
+    morph = morphio.mut.Morphology(morph_path, morphio.Option.nrn_order)
+    morph = _transform_morphology(morph, node_path, node_population, gid)
+
+    center_points = _compute_center_point(morph, section_id, segment_id, segment_offset)
+
+    return np.hstack((center_points, edge_idx[:, np.newaxis]))
+
+
+def write_center_points(morphologies, population, direction, edge_path, node_path):
+    """Write center x, y, z points for given edge population
+
+    Args:
+        morphologies(pd.DataFrame): full morph paths with index of NodeID
+        population(str): edge_population name
+        direction(str): `afferent` or `efferent`
+        edge_path(str): path to the edges.h5 file
+        node_path(str): path to the *fferent nodes.h5 file
+    """
+    func = partial(
+        _compute_center_point_worker,
+        edge_path=edge_path,
+        node_path=node_path,
+        direction=direction,
+        population=population,
+    )
+
+    with multiprocessing.Pool() as pool:
+        res = pool.map(func, tqdm(morphologies.reset_index().values))
+
+    res = np.concatenate([r for r in res if r is not None])
+    positions, edge_ids = res[:, :-1], res[:, -1]
+
+    # sort values by edge ids
+    positions = positions[np.argsort(edge_ids)].T
+
+    with h5py.File(edge_path, "r+") as h5:
+        pop0 = h5[f"edges/{population}/0"]
+        fields = [direction + "_center_" + a for a in list("xyz")]
+        for field, position in zip(fields, positions):
+            backup_and_create_dataset(pop0, field, position, np.float32)
