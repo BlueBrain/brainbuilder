@@ -287,6 +287,22 @@ def update_edge_center_points(morph_path, population, nodes, direction, edge_fil
 
 
 @app.command()
+@click.option(
+    "--morph-path", required=True, type=REQUIRED_PATH_DIR, help="path to h5 morphology files"
+)
+@click.option("--population", default="default", show_default=True, help="Population name")
+@click.option("--nodes", required=True, type=REQUIRED_PATH, help="Node file")
+@click.option("--direction", type=click.Choice(["afferent", "efferent"]), required=True)
+@click.argument("edge-file", required=True, type=REQUIRED_PATH)
+def update_edge_surface_points(morph_path, population, nodes, direction, edge_file):
+    """Update edge afferent/efferent surface points."""
+    from brainbuilder.utils.sonata import reindex
+
+    morphologies = _get_morphs_with_full_path(nodes, morph_path)
+    reindex.write_surface_points(morphologies, population, direction, edge_file, nodes)
+
+
+@app.command()
 @click.option("--population", default="default", show_default=True, help="Population name")
 @click.argument("edge-file", required=True, type=REQUIRED_PATH)
 def update_projection_efferent_section_type(population, edge_file):

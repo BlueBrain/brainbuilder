@@ -32,6 +32,7 @@ import logging
 import multiprocessing
 import os
 import shutil
+import sys
 from functools import partial
 
 import click
@@ -54,6 +55,7 @@ INDEX_ID = {
     "afferent": "target_node_id",
     "efferent": "source_node_id",
 }
+FLOAT_LIMIT = sys.float_info.epsilon * 64  # from touchdetector
 
 
 def _get_only_children(parents):
@@ -619,5 +621,195 @@ def write_center_points(morphologies, population, direction, edge_path, node_pat
     with h5py.File(edge_path, "r+") as h5:
         pop0 = h5[f"edges/{population}/0"]
         fields = [direction + "_center_" + a for a in list("xyz")]
+        for field, position in zip(fields, positions):
+            backup_and_create_dataset(pop0, field, position, np.float32)
+
+
+def _get_data_for_computing_surface_points(gid, edge_path, direction, population):
+    """Gets the necessary data from edges file to compute surface point."""
+    with h5py.File(edge_path) as h5:
+        pop = h5["edges"][population]
+        edge_idx = _get_synapse_ids(pop[f"indices/{INDEX_DIRECTION[direction]}"], gid)
+
+        if edge_idx is None:
+            return None
+
+        index = INDEX_ID[direction]
+        assert len(set(pop[index][edge_idx])) == 1, f"{index} contains erroneous entries"
+
+        opposite = "efferent" if direction == "afferent" else "afferent"
+
+        return (
+            np.asarray(h5[f"edges/{population}/0/{direction}_section_id"][edge_idx]),
+            np.asarray(h5[f"edges/{population}/0/{direction}_segment_id"][edge_idx]),
+            np.asarray(h5[f"edges/{population}/0/{direction}_segment_offset"][edge_idx]),
+            np.vstack(
+                (
+                    np.asarray(h5[f"edges/{population}/0/{direction}_center_x"][edge_idx]),
+                    np.asarray(h5[f"edges/{population}/0/{direction}_center_y"][edge_idx]),
+                    np.asarray(h5[f"edges/{population}/0/{direction}_center_z"][edge_idx]),
+                )
+            ).T,
+            np.vstack(
+                (
+                    np.asarray(h5[f"edges/{population}/0/{opposite}_center_x"][edge_idx]),
+                    np.asarray(h5[f"edges/{population}/0/{opposite}_center_y"][edge_idx]),
+                    np.asarray(h5[f"edges/{population}/0/{opposite}_center_z"][edge_idx]),
+                )
+            ).T,
+            edge_idx,
+            pop[index].attrs["node_population"],
+        )
+
+
+def _get_segment_info_for_surface_points(morph, section_ids, segment_ids):
+    """Get necessary segment information to compute surface point."""
+    radius, delta = np.full((2, len(section_ids)), np.nan)
+    segment = np.full((len(section_ids), 3), np.nan)
+
+    for i, (section_id, segment_id) in enumerate(zip(section_ids, segment_ids)):
+        if section_id == 0:
+            if morph.soma.type != morphio.SomaType.SOMA_SIMPLE_CONTOUR:
+                L.warning("Morph soma type is: %s", morph.soma.type)
+            radius[i] = morph.soma.max_distance
+        else:
+            section = morph.section(section_id - 1)  # off-by-one gotcha
+
+            # if touch in the end of the last segment (rare case)
+            if segment_id + 1 == len(section.points):
+                # In rare cases, synapse at the end of last segment has a non-existing
+                # Segment ID (1 too much) and an offset of zero. Assume the segment direction
+                # is the same, radius is that of the end of the segment and delta = 0
+                segment[i] = np.diff(section.points[segment_id - 1 : segment_id + 1], axis=0)
+                radius[i] = section.diameters[segment_id]
+                delta[i] = 0
+
+            else:
+                segment_slice = slice(segment_id, segment_id + 2)
+                segment[i] = np.diff(section.points[segment_slice], axis=0)
+                radius[i] = section.diameters[segment_id]
+                delta[i] = np.diff(section.diameters[segment_slice])
+
+    return (
+        segment[np.all(np.isfinite(segment), axis=1)],
+        delta[np.isfinite(delta)],
+        radius,
+    )
+
+
+def _compute_surface_point_segment(center_point, segment, connection, radius, delta_radius, offset):
+    """Compute surface points for synapses in segments."""
+    radial = np.cross(segment, np.cross(connection, segment, axis=1), axis=1)
+    radial_norm = np.linalg.norm(radial, axis=1)
+
+    if any(under_limit := radial_norm <= FLOAT_LIMIT):
+        L.warning("Radial norm too small")
+        radial_norm[under_limit] = FLOAT_LIMIT
+
+    center_radius = radius + delta_radius * offset / np.linalg.norm(segment, axis=1)
+
+    return center_point + center_radius[:, np.newaxis] * radial / radial_norm[:, np.newaxis]
+
+
+def _compute_surface_point(
+    morph, section_id, segment_id, segment_offset, center_point, opposite_center
+):
+    """Compute the surface point for the synapses"""
+    segment, delta_radius, radius = _get_segment_info_for_surface_points(
+        morph, section_id, segment_id
+    )
+
+    surface_points = np.full_like(center_point, np.nan)
+
+    connection = opposite_center - center_point
+    len_connection = np.linalg.norm(connection, axis=1)
+    zeros = len_connection < FLOAT_LIMIT
+
+    if any(zeros):
+        # surface too close?
+        L.warning("Surface too close, assuming equal to center")
+        surface_points[zeros] = center_point[zeros]
+
+    # for soma
+    soma_mask = np.logical_and(np.invert(zeros), section_id == 0)
+    surface_points[soma_mask] = (
+        center_point[soma_mask]
+        + connection[soma_mask]
+        / len_connection[soma_mask, np.newaxis]
+        * radius[soma_mask, np.newaxis]
+    )
+
+    # for segments
+    segment_mask = np.logical_and(np.invert(soma_mask), np.invert(zeros))
+    surface_points[segment_mask] = _compute_surface_point_segment(
+        center_point[segment_mask],
+        segment,
+        connection[segment_mask],
+        radius[segment_mask],
+        delta_radius,
+        segment_offset[segment_mask],
+    )
+
+    return surface_points
+
+
+def _get_surface_point_worker(id_morph, edge_path, direction, population, node_path):
+    """Worker function computing the synapse surface points."""
+    # pylint: disable=too-many-locals
+    gid, morph_path = id_morph
+    data = _get_data_for_computing_surface_points(gid, edge_path, direction, population)
+
+    if data is None:
+        return None
+
+    (
+        section_id,
+        segment_id,
+        segment_offset,
+        center_point,
+        opposite_center,
+        edge_idx,
+        node_population,
+    ) = data
+
+    morph = morphio.mut.Morphology(morph_path, morphio.Option.nrn_order)
+    morph = _transform_morphology(morph, node_path, node_population, gid)
+
+    surface_points = _compute_surface_point(
+        morph, section_id, segment_id, segment_offset, center_point, opposite_center
+    )
+    return np.hstack((surface_points, edge_idx[:, np.newaxis]))
+
+
+def write_surface_points(morphologies, population, direction, edge_path, node_path):
+    """Write surface x, y, z points for given edge population
+
+    Args:
+        morphologies(pd.DataFrame): full morph paths with index of NodeID
+        population(str): edge_population name
+        direction(str): `afferent` or `efferent`
+        edge_path(str): path to the edges.h5 file
+        node_path(str): path to the *fferent nodes.h5 file
+    """
+    func = partial(
+        _get_surface_point_worker,
+        edge_path=edge_path,
+        direction=direction,
+        population=population,
+        node_path=node_path,
+    )
+
+    with multiprocessing.Pool() as pool:
+        res = pool.map(func, tqdm(morphologies.reset_index().values))
+
+    res = np.concatenate([r for r in res if r is not None])
+    positions, edge_ids = res[:, :-1], res[:, -1]
+
+    # sort values by edge ids
+    positions = positions[np.argsort(edge_ids)].T
+
+    with h5py.File(edge_path, "r+") as h5:
+        pop0 = h5[f"edges/{population}/0"]
+        fields = [direction + "_surface_" + a for a in list("xyz")]
         for field, position in zip(fields, positions):
             backup_and_create_dataset(pop0, field, position, np.float32)
