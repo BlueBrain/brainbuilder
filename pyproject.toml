@@ -50,10 +50,10 @@ all = []  # for compatibility
 reindex = []  # for compatibility
 
 [project.urls]
-Homepage = "https://github.com/BlueBrain/brainbuild"
-Repository = "https://github.com/BlueBrain/brainbuild.git"
-Documentation = "https://github.com/BlueBrain/brainbuild"
-Tracker = "https://github.com/BlueBrain/brainbuild/issues"
+Homepage = "https://github.com/BlueBrain/brainbuilder"
+Repository = "https://github.com/BlueBrain/brainbuilder.git"
+Documentation = "https://github.com/BlueBrain/brainbuilder"
+Tracker = "https://github.com/BlueBrain/brainbuilder/issues"
 
 [project.scripts]
 brainbuilder = "brainbuilder.app.__main__:main"
