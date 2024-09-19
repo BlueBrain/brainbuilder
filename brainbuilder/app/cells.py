@@ -38,6 +38,7 @@ Based on:
     (https://bbpcode.epfl.ch/code/#/admin/projects/bbpnr/genBrain)
 """
 
+import json
 import logging
 import numbers
 from collections.abc import Mapping
@@ -256,8 +257,24 @@ def _place(
             root_mask.raw &= region_mask.raw
 
     L.info("Creating cell groups...")
+
+    try:
+        _soma_placement = json.loads(soma_placement)
+    except json.JSONDecodeError:
+        _soma_placement = None
+
     groups = [
-        _create_cell_group(conf, atlas, root_mask, density_factor, soma_placement)
+        _create_cell_group(
+            conf,
+            atlas,
+            root_mask,
+            density_factor,
+            (
+                _soma_placement.get(conf["traits"]["mtype"], "basic")
+                if _soma_placement is not None
+                else soma_placement
+            ),
+        )
         for conf in recipe["neurons"]
     ]
 
