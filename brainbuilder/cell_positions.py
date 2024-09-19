@@ -4,6 +4,7 @@
 import logging
 
 import numpy as np
+from tqdm import tqdm
 
 from brainbuilder import poisson_disc_sampling
 
@@ -103,6 +104,70 @@ def _create_cell_positions_uniform(density, density_factor):
     return density.indices_to_positions(chosen_idx + np.random.random(np.shape(chosen_idx)))
 
 
+def _create_cell_positions_accept_reject(
+    density, density_factor, max_iterations=100, min_distance=20
+):
+    """Create cell positions given cell density volumetric data.
+
+    Within voxels, samples are created according to a uniform distribution, but only if they are
+    more that min_distance from neighbors. If max_iterations is attained a random choice
+    is provided, likely closer than min_distance.
+
+    A careful choice of min_distance/max_iterations is therefore important for convergence and
+    a small number of randomly placld cells. Finding these parameters automatically can be tricky
+    and is therefore best done on a trial/error basis.
+
+    The total cell count is calculated based on cell density values.
+
+    Args:
+        density(VoxelData): cell density (count / mm^3)
+        density_factor(float): reduce / increase density proportionally for all
+            voxels. Default is 1.0.
+        max_iterations(int): maximum number of iterations. Default is 100.
+        min_distance(float): minimum distance between cells. Default is 10.
+
+    Returns:
+        numpy.array: array of positions of shape (cell_count, 3) where each row
+        represents a cell and the columns correspond to (x, y, z).
+    """
+    cell_count_per_voxel, cell_count = _get_cell_count(density, density_factor)
+
+    if cell_count == 0:
+        L.warning("Density resulted in zero cell counts.")
+        return np.empty((0, 3), dtype=np.float32)
+
+    voxel_ijk = np.nonzero(cell_count_per_voxel > 0)
+    voxel_idx = np.arange(len(voxel_ijk[0]))
+    voxels = np.stack(voxel_ijk).transpose()
+    probs = 1.0 * cell_count_per_voxel[voxel_ijk] / np.sum(cell_count_per_voxel)
+
+    # pick a first position
+    candidate_id = np.random.choice(voxel_idx, 1, p=probs)
+    positions = density.indices_to_positions(voxels[candidate_id] + np.random.random(3))
+
+    # add other positions
+    for _ in tqdm(range(cell_count)):
+        counter = 0
+        _min_distance = 0
+        # this is a hard condition, unless we hit max_interations,
+        # we could relax it with a proper accept-reject algo and a probability as a function
+        # of min_distance
+        while _min_distance < min_distance:
+            candidate_id = np.random.choice(voxel_idx, 1, p=probs)
+            candidate_pos = density.indices_to_positions(voxels[candidate_id] + np.random.random(3))
+            _min_distance = min(np.linalg.norm(candidate_pos - positions, axis=1))
+            counter += 1
+            if counter > max_iterations:
+                L.warning(
+                    "Max iterations of %s is reached. Using a random positions instead.",
+                    max_iterations,
+                )
+                break
+
+        positions = np.append(positions, candidate_pos, axis=0)
+    return positions
+
+
 def _create_cell_positions_poisson_disc(density, density_factor):
     """Create cell positions given cell density volumetric data (using poisson disc sampling).
 
@@ -165,6 +230,14 @@ def create_cell_positions(density, density_factor=1.0, method="basic", seed=None
 
     Total cell count is calculated based on cell density values.
 
+    For the ``accept_reject`` method, the algorithm has to be calibrated to converge and produce
+    expected results. For this, one can pass a json str instaed of `method` str, of the form
+
+        '{"mtype1": {"method": "accept_reject", "kwargs": {"min_distance": 35}}}'
+
+    to setup the values of the parameters of `accept_reject` method for this mtype. The other mtypes
+    will have the default `basic` method, unless otherwise specified with another entry.
+
     Args:
         density(VoxelData): cell density (count / mm^3)
         density_factor(float): reduce / increase density proportionally for all
@@ -175,6 +248,7 @@ def create_cell_positions(density, density_factor=1.0, method="basic", seed=None
             - ``basic``: generated positions may collide or form clusters
             - ``poisson_disc``: positions are created with poisson disc sampling algorithm
               where minimum distance between points is modulated based on density values
+            - ``accept_reject``: positions are created with accept-reject algorithm
 
         seed(int): (optional) the numpy random seed to be used.
             Defaults to None, in which case the seed is not set and the outcome
@@ -193,6 +267,11 @@ def create_cell_positions(density, density_factor=1.0, method="basic", seed=None
     position_generators = {
         "basic": _create_cell_positions_uniform,
         "poisson_disc": _create_cell_positions_poisson_disc,
+        "accept_reject": _create_cell_positions_accept_reject,
     }
-
-    return position_generators[method](density, density_factor)
+    kwargs = {}
+    if isinstance(method, dict):
+        kwargs = method["kwargs"]
+        method = method["method"]
+        L.info("Using non-default (basic) method %s with kwargs %s", method, kwargs)
+    return position_generators[method](density, density_factor, **kwargs)
